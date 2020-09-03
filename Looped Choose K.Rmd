@@ -1,0 +1,115 @@
+---
+title: "Untitled"
+output: html_document
+---
+libraries 
+```{r eval=FALSE}
+library(MixSim) #To create the cluster data
+library(plyr) #For data editing
+library(tidyr) #For data editing
+library(NbClust) #30 stopping rules 
+
+```
+
+
+Define a function, that lets me only input K into MixSim to simulate data with diferent numbers of clusters
+
+
+K is the number of clusters, p in the dimensions, n is the number of datapoints. 
+```{r eval=FALSE}
+
+NbClust2Tibble <- function(K){
+  
+  coordinates <- MixSim(MaxOmega = 0.00, BarOmega = 0.00, K, p =2, int = c(0.2, 1))
+  coordinates <- simdataset(n = 100, Pi = coordinates$Pi, Mu = coordinates$Mu, S = coordinates$S, lambda = c(0.1, 10))
+  coordinates <- data.frame(as_tibble(coordinates$X))
+  
+  return(coordinates=coordinates)
+ 
+}
+```
+
+
+
+Create a loop, which will create the cluster coordinate with the function above, and pass it to NbClust 
+```{r eval=FALSE}
+K = c(2:10)
+label=data.frame(0)
+d = data.frame(0)
+result = data.frame(0)
+
+
+for (i in 1:9){
+  
+  d <- NbClust2Tibble(K[i]) #Call function to create data 
+  label[i] <- data.frame(K[i]) #Save the label to know which amount of clusters were used in each iterations 
+  d <-NbClust(d, distance = "euclidean", min.nc = 2, max.nc = 15, method = "complete", index = "alllong") #Use NbClusts 30 rules 
+  result <- data.frame(result, d$Best.nc[-2,]) #Save guess for each stopping rule into dataframe, new column for each iteration 
+}
+
+```
+
+
+Create a loop, which will calculate the score for each stopping rule 
+```{r eval=FALSE}
+score = data.frame(0)
+result=data.frame(result[,-1], score)
+label <- data.frame(t(K))
+result=rename(result, c("X0"="score"))
+
+
+for (i in 1:nrow(result)){
+  for (t in 1:9){
+    
+    result$score[i] <- ifelse(result[i,t] == label[t], result$score[i] +1, result$score[i] +0) #If guess is equal to label, have a point. 
+  }
+}
+
+
+```
+
+
+
+A loop that picks a random value of K (between 2 and 15) and tests the stopping rules 
+```{r}
+K = round(runif(100, min = 2, max = 15),digits = 0  ) #Create 100 random digits between 2 and 15 
+label=data.frame(0)
+d = data.frame(0)
+result = data.frame(0)
+
+
+for (i in 1:length(K)){
+  
+  d <- NbClust2Tibble(K[i])
+  label[i] <- data.frame(K[i])
+  d <-NbClust(d, distance = "euclidean", min.nc = 2, max.nc = 30, method = "complete", index = "alllong")
+
+  result <- data.frame(result, d$Best.nc[-2,])
+}
+
+```
+
+Create a loop, which will calculate the score for each stopping rule 
+```{r eval=FALSE}
+score = data.frame(0)
+
+result=data.frame(result[,-1], score)
+
+label <- data.frame(t(K))
+
+result=rename(result, c("X0"="score"))
+
+
+for (i in 1:nrow(result)){
+  for (t in 1:100){
+    
+    result$score[i] <- ifelse(result[i,t] == label[t], result$score[i] +1, result$score[i] +0)
+  }
+}
+
+
+```
+
+
+
+
